@@ -16,4 +16,8 @@ fileServer.onDisconnect(() => {
   console.log('Client disconnected');
 });
 
+fileServer.onLog((server, msg) => {
+  console.log(msg);
+});
+
 fileServer.listen();

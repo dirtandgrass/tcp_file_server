@@ -59,7 +59,7 @@ class FileServer {
 
   // register callback for server log event
   onLog(callback) {
-    this.#callbacks.onLog.push(callback);
+    this.#serverCallbacks.onLog.push(callback);
   }
 
   // handle new client connections
@@ -70,12 +70,13 @@ class FileServer {
 
     client.on('data', (data) => {
       if (typeof data === 'string') {
-        this.#triggerOnServer('onLog', [`Received: ${data}`]);
+
         try {
           const jsonData = JSON.parse(data);
           if (!jsonData || !jsonData.type) return;
 
           if (this.#clientActions.has(jsonData.type)) {
+            this.#triggerOnServer('onLog', [`Received: [${jsonData.type}] request`]);
             this.#clientActions.get(jsonData.type)(client, jsonData.payload); // payload is optional
           }
         } catch (error) {
