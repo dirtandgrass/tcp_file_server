@@ -1,9 +1,10 @@
 
-class Server {
+class FileServer {
   #net = require('net');
   #clients = []; // active connections
   #port;
   #server; // net server object
+  #fileService;
 
   #callbacks = {
     onConnection: [],
@@ -13,18 +14,12 @@ class Server {
 
   // simple protocol, map of type/action to server response
   #clientActions = new Map([
-    ['message',
-      (client, payload) => {
-        console.log('Message from client: ', payload);
-        this.#clients.forEach((c) => {
-          if (c !== client) {
-            c.write(JSON.stringify({
-              type: 'message',
-              payload
-            }));
-          }
-        });
+    ['list',
+      async(client) => {
+        const files = await this.#fileService.listFiles();
+        client.write(JSON.stringify({type: 'list', payload: files}));
       }
+
     ]
   ]);
 
@@ -56,9 +51,10 @@ class Server {
 
     client.on('data', (data) => {
       if (typeof data === 'string') {
+        console.log('Received:', data);
         try {
           const jsonData = JSON.parse(data);
-          if (!jsonData || !jsonData.type || !jsonData.payload) return;
+          if (!jsonData || !jsonData.type) return;
 
           if (this.#clientActions.has(jsonData.type)) {
             this.#clientActions.get(jsonData.type)(client, jsonData.payload);
@@ -76,14 +72,15 @@ class Server {
   }
 
   listen() {
+    if (this.#server.listening) throw new Error('Server already listening');
     this.#server.listen(this.#port, () => {
       console.log(`Server listening on port ${this.#port}!`);
     });
   }
 
-  constructor(port = 4996, start = true) {
+  constructor(fileService, start = true, port = 4996) {
     this.#port = port;
-
+    this.#fileService = fileService;
 
     this.#server = this.#net.createServer(this.#clientConnected.bind(this));
 
@@ -93,4 +90,4 @@ class Server {
   }
 }
 
-module.exports = Server;
+module.exports = FileServer;

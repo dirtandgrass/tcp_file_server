@@ -7,6 +7,55 @@ class Files {
     this.#path = path;
   }
 
+  async writeFile(file, data) {
+    const fileExists = await this.isFile(file);
+    let filename = file;
+
+    console.log('file exists:', fileExists);
+    // check if the filer already exists
+    // change filename to include a incrementing number
+    // don't forget it may have an extension
+    if (fileExists) {
+      const split = file.split('.');
+      const ext = split.pop();
+      const name = split.join('.');
+      let i = 1;
+      while (await this.isFile(filename)) {
+        filename = `${name}_${i}.${ext}`;
+        i++;
+      }
+    }
+
+    console.log('writing to file:', filename);
+    const promise = new Promise((resolve, reject) => {
+      fs.writeFile(this.#path + filename, data, (err) => {
+        if (err) {
+          reject({err});
+        } else {
+          resolve({filename});
+        }
+      });
+    });
+    return promise;
+  }
+
+  async readFile(file) {
+    const isFile = await this.isFile(file);
+    const promise = new Promise((resolve, reject) => {
+      if (!isFile) reject({err:'File not found'});
+
+      fs.readFile(this.#path + file, (err, data) => {
+        if (err) {
+          reject({err});
+        } else {
+          resolve({file,data});
+        }
+      });
+    });
+
+    return promise;
+  }
+
   async isFile(file) {
     const promise = new Promise((resolve) => {
       fs.stat(this.#path + file, (err, stats) => {

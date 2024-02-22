@@ -1,21 +1,19 @@
-const Server = require('./services/Server');
+const Server = require('./services/FileServer');
 const Files = require('./services/Files');
 
-
 const files = new Files('./public/');
+const fileServer = new Server(files, false);
 
+fileServer.onConnection(() => {
+  console.log('Client connected');
+});
 
-(async() => {
-  const fileList = await files.listFiles();
-  console.log(fileList);
-})();
+fileServer.onError((client, msg) => {
+  console.log('Error occurred:', msg);
+});
 
-// const fileServer = new Server(4321);
+fileServer.onDisconnect(() => {
+  console.log('Client disconnected');
+});
 
-// fileServer.onConnection(() => {
-//   console.log('Client connected');
-// });
-
-// fileServer.onError((client, msg) => {
-//   console.log('Error occurred:', msg);
-// });
+fileServer.listen();
