@@ -9,7 +9,11 @@ class FileServer {
   #callbacks = {
     onConnection: [],
     onDisconnect: [],
-    onError: []
+    onError: [],
+  };
+
+  #serverCallbacks = {
+    onLog: [],
   };
 
   // simple protocol, map of type/action to server response
@@ -19,18 +23,23 @@ class FileServer {
         const files = await this.#fileService.listFiles();
         client.write(JSON.stringify({type: 'list', payload: files}));
       }
-    ],['get',async(client, file) => {
-      const data = await this.#fileService.readFile(file);
-      client.write(JSON.stringify({type: 'get', payload: data}));
+    ],['get',async(client, payload) => {
+      const requestFile = payload.file;
+      const {file, data} = await this.#fileService.readFile(requestFile);
+      client.write(JSON.stringify({type: 'get', payload: {file, data}}));
     }],['put',async(client, {file, data}) => {
       const filename = await this.#fileService.writeFile(file, data);
       client.write(JSON.stringify({type: 'put', payload: filename}));
     }]
   ]);
 
-  // trigger all callbacks of a certain type
+  // trigger all client based callbacks of a certain type
   #triggerOnClient(type,client, params = []) {
     for (const callback of this.#callbacks[type]) callback(client, ...params);
+  }
+
+  #triggerOnServer(type, params = []) {
+    for (const callback of this.#serverCallbacks[type]) callback(this, ...params);
   }
 
   // register callback for client connected event
@@ -48,21 +57,26 @@ class FileServer {
     this.#callbacks.onError.push(callback);
   }
 
+  // register callback for server log event
+  onLog(callback) {
+    this.#callbacks.onLog.push(callback);
+  }
+
   // handle new client connections
   #clientConnected(client) {
     this.#triggerOnClient('onConnection', client);
     this.#clients.push(client);
-    client.setEncoding('utf8'); // todo: set it back for file transfer?
+    client.setEncoding('utf8');
 
     client.on('data', (data) => {
       if (typeof data === 'string') {
-        console.log('Received:', data);
+        this.#triggerOnServer('onLog', [`Received: ${data}`]);
         try {
           const jsonData = JSON.parse(data);
           if (!jsonData || !jsonData.type) return;
 
           if (this.#clientActions.has(jsonData.type)) {
-            this.#clientActions.get(jsonData.type)(client, jsonData.payload);
+            this.#clientActions.get(jsonData.type)(client, jsonData.payload); // payload is optional
           }
         } catch (error) {
           const message = 'Invalid JSON';
@@ -79,7 +93,7 @@ class FileServer {
   listen() {
     if (this.#server.listening) throw new Error('Server already listening');
     this.#server.listen(this.#port, () => {
-      console.log(`Server listening on port ${this.#port}!`);
+      this.#triggerOnServer('onLog', [`Server listening on port ${this.#port}!`]);
     });
   }
 

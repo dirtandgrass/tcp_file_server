@@ -11,7 +11,6 @@ class Files {
     const fileExists = await this.isFile(file);
     let filename = file;
 
-    console.log('file exists:', fileExists);
     // check if the filer already exists
     // change filename to include a incrementing number
     // don't forget it may have an extension
@@ -25,8 +24,6 @@ class Files {
         i++;
       }
     }
-
-    console.log('writing to file:', filename);
     const promise = new Promise((resolve, reject) => {
       fs.writeFile(this.#path + filename, data, (err) => {
         if (err) {
@@ -44,7 +41,7 @@ class Files {
     const promise = new Promise((resolve, reject) => {
       if (!isFile) reject({err:'File not found'});
 
-      fs.readFile(this.#path + file, (err, data) => {
+      fs.readFile(this.#path + file, 'utf-8',(err, data) => {
         if (err) {
           reject({err});
         } else {
