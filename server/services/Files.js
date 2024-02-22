@@ -1,23 +1,37 @@
+const fs = require('fs');
+
 class Files {
   #path = 'server/public';
-  #fs = require('fs');
 
   constructor(path = "../public/") {
     this.#path = path;
   }
 
-
   async listFiles() {
     const promise = new Promise((resolve, reject) => {
-      this.#fs.readdir(this.#path, (err, files) => {
+      fs.readdir(this.#path, async(err, files) => {
         if (err) {
           reject(err);
         } else {
-          resolve(files);
+          const filesOnly = await getFilesOnly(this.#path, files);
+          resolve(filesOnly);
         }
       });
     });
     return promise;
   }
 }
+
+const getFilesOnly = (path, files) => {
+  const promise = new Promise((resolve) => {
+
+    const filesOnly = files.filter((file) => {
+      const stats = fs.statSync(path + file);
+      return stats.isFile();
+    });
+    resolve(filesOnly);
+  });
+  return promise;
+};
+
 module.exports = Files;
