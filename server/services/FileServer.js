@@ -19,8 +19,13 @@ class FileServer {
         const files = await this.#fileService.listFiles();
         client.write(JSON.stringify({type: 'list', payload: files}));
       }
-
-    ]
+    ],['get',async(client, file) => {
+      const data = await this.#fileService.readFile(file);
+      client.write(JSON.stringify({type: 'get', payload: data}));
+    }],['put',async(client, {file, data}) => {
+      const filename = await this.#fileService.writeFile(file, data);
+      client.write(JSON.stringify({type: 'put', payload: filename}));
+    }]
   ]);
 
   // trigger all callbacks of a certain type
