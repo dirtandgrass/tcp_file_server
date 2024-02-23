@@ -1,4 +1,3 @@
-
 class FileServer {
   #net = require('net');
   #clients = []; // active connections
@@ -24,11 +23,22 @@ class FileServer {
         client.write(JSON.stringify({type: 'list', payload: files}));
       }
     ],['get',async(client, payload) => {
+
       const requestFile = payload.file;
-      const {file, data} = await this.#fileService.readFile(requestFile);
-      client.write(JSON.stringify({type: 'get', payload: {file, data}}));
-    }],['put',async(client, {file, data}) => {
-      const filename = await this.#fileService.writeFile(file, data);
+      // send metadata
+      client.write(JSON.stringify({type: 'get', payload: {file:requestFile}}));
+
+      // send file
+
+      (await this.#fileService.getReadStream(requestFile)).pipe(client);
+
+
+    }],['put',async(client, {file}) => {
+      // open pipe to receive data
+      const {stream, filename} = await this.#fileService.getWriteStream(file);
+      // receive data
+      client.pipe(stream);
+      // send response
       client.write(JSON.stringify({type: 'put', payload: filename}));
     }]
   ]);
@@ -66,24 +76,29 @@ class FileServer {
   #clientConnected(client) {
     this.#triggerOnClient('onConnection', client);
     this.#clients.push(client);
-    client.setEncoding('utf8');
 
     client.on('data', (data) => {
-      if (typeof data === 'string') {
 
-        try {
-          const jsonData = JSON.parse(data);
-          if (!jsonData || !jsonData.type) return;
+      const first = data.toString('utf8',0,1);
+      if (first === '{') {
+        data = data.toString('utf8');
+        if (typeof data === 'string') {
+          try {
+            const jsonData = JSON.parse(data);
+            if (!jsonData || !jsonData.type) return;
 
-          if (this.#clientActions.has(jsonData.type)) {
-            this.#triggerOnServer('onLog', [`Received: [${jsonData.type}] request`]);
-            this.#clientActions.get(jsonData.type)(client, jsonData.payload); // payload is optional
+            if (this.#clientActions.has(jsonData.type)) {
+              this.#triggerOnServer('onLog', [`Received: [${jsonData.type}] request`]);
+              this.#clientActions.get(jsonData.type)(client, jsonData.payload); // payload is optional
+            }
+          } catch (error) {
+
+            const message = 'Invalid JSON';
+            this.#triggerOnClient('onError', client, [message, error]);
+
+
           }
-        } catch (error) {
-          const message = 'Invalid JSON';
-          this.#triggerOnClient('onError', client, [message, error]);
         }
-
       }
     });
     client.on('end', () => {

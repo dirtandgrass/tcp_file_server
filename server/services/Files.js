@@ -7,7 +7,19 @@ class Files {
     this.#path = path;
   }
 
-  async writeFile(file, data) {
+
+  async getReadStream(file) {
+    const fileExists = await this.isFile(file);
+    if (fileExists === false) throw new Error('File not found');
+    return fs.createReadStream(this.#path + file);
+  }
+
+  async getWriteStream(file) {
+    const filename = await this.#getUseableFilename(file);
+    return {stream:fs.createWriteStream(this.#path + filename),filename};
+  }
+
+  async #getUseableFilename(file) {
     const fileExists = await this.isFile(file);
     let filename = file;
 
@@ -24,6 +36,13 @@ class Files {
         i++;
       }
     }
+
+    return filename;
+
+  }
+
+  async writeFile(file, data) {
+    const filename = await this.#getUseableFilename(file);
     const promise = new Promise((resolve, reject) => {
       fs.writeFile(this.#path + filename, data, (err) => {
         if (err) {
